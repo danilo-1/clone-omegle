@@ -383,6 +383,7 @@
             display: flex;
             gap: 10px;
             justify-content: center;
+            flex-wrap: wrap;
         }
 
         #newChatBtn {
@@ -631,10 +632,21 @@
 
             // Se for áudio ou vídeo, iniciar WebRTC
             if (data.mode === 'audio' || data.mode === 'video') {
+                console.log('Iniciando modo:', data.mode);
                 videoArea.classList.add('active');
-                await initializeMedia(data.mode);
+
+                const mediaSuccess = await initializeMedia(data.mode);
+                if (!mediaSuccess) {
+                    addSystemMessage('⚠️ Não foi possível acessar mídia. Usando apenas texto.');
+                    return;
+                }
+
+                // Pequeno delay para garantir que ambos tenham mídia pronta
+                await new Promise(resolve => setTimeout(resolve, 500));
+
                 await createPeerConnection();
                 await createOffer();
+                console.log('Oferta WebRTC criada e enviada');
             }
         });
 
@@ -666,20 +678,38 @@
 
         // WebRTC Signaling
         socket.on('webrtc-offer', async (data) => {
-            await createPeerConnection();
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            socket.emit('webrtc-answer', { answer });
+            console.log('Oferta WebRTC recebida');
+            try {
+                await createPeerConnection();
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                socket.emit('webrtc-answer', { answer });
+                console.log('Resposta WebRTC enviada');
+            } catch (error) {
+                console.error('Erro ao processar oferta WebRTC:', error);
+            }
         });
 
         socket.on('webrtc-answer', async (data) => {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            console.log('Resposta WebRTC recebida');
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+                console.log('Conexão WebRTC estabelecida');
+            } catch (error) {
+                console.error('Erro ao processar resposta WebRTC:', error);
+            }
         });
 
         socket.on('webrtc-ice-candidate', async (data) => {
-            if (peerConnection && data.candidate) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            console.log('ICE candidate recebido');
+            try {
+                if (peerConnection && data.candidate) {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+                    console.log('ICE candidate adicionado');
+                }
+            } catch (error) {
+                console.error('Erro ao adicionar ICE candidate:', error);
             }
         });
 
@@ -764,27 +794,36 @@
         }
 
         async function createPeerConnection() {
+            console.log('Criando conexão peer');
             peerConnection = new RTCPeerConnection(rtcConfig);
 
             // Adicionar tracks locais
             if (localStream) {
                 localStream.getTracks().forEach(track => {
+                    console.log('Adicionando track local:', track.kind);
                     peerConnection.addTrack(track, localStream);
                 });
             }
 
             // Receber tracks remotos
             peerConnection.ontrack = (event) => {
-                if (!remoteStream) {
-                    remoteStream = new MediaStream();
-                    remoteVideo.srcObject = remoteStream;
+                console.log('Track recebido:', event.track.kind);
+                if (event.streams && event.streams[0]) {
+                    remoteVideo.srcObject = event.streams[0];
+                    console.log('Stream remoto conectado');
+                } else {
+                    if (!remoteStream) {
+                        remoteStream = new MediaStream();
+                        remoteVideo.srcObject = remoteStream;
+                    }
+                    remoteStream.addTrack(event.track);
                 }
-                remoteStream.addTrack(event.track);
             };
 
             // ICE Candidates
             peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
+                    console.log('Enviando ICE candidate');
                     socket.emit('webrtc-ice-candidate', {
                         candidate: event.candidate
                     });
@@ -794,19 +833,34 @@
             // Connection state
             peerConnection.onconnectionstatechange = () => {
                 console.log('Connection state:', peerConnection.connectionState);
-                if (peerConnection.connectionState === 'failed') {
+                if (peerConnection.connectionState === 'connected') {
+                    addSystemMessage('🎥 Vídeo/Áudio conectado!');
+                } else if (peerConnection.connectionState === 'failed') {
                     addSystemMessage('❌ Falha na conexão de vídeo/áudio.');
+                } else if (peerConnection.connectionState === 'disconnected') {
+                    addSystemMessage('⚠️ Vídeo/Áudio desconectado.');
                 }
+            };
+
+            // ICE Connection state
+            peerConnection.oniceconnectionstatechange = () => {
+                console.log('ICE Connection state:', peerConnection.iceConnectionState);
             };
         }
 
         async function createOffer() {
             try {
-                const offer = await peerConnection.createOffer();
+                console.log('Criando oferta WebRTC');
+                const offer = await peerConnection.createOffer({
+                    offerToReceiveAudio: true,
+                    offerToReceiveVideo: currentMode === 'video'
+                });
                 await peerConnection.setLocalDescription(offer);
                 socket.emit('webrtc-offer', { offer });
+                console.log('Oferta enviada');
             } catch (error) {
                 console.error('Erro ao criar oferta:', error);
+                addSystemMessage('❌ Erro ao iniciar vídeo/áudio');
             }
         }
 
