@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Omegle - Vídeo, Áudio e Texto</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 1200px;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .status {
+            font-size: 14px;
+            opacity: 0.9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #28a745;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.searching {
+            background: #ffc107;
+        }
+
+        .status-indicator.disconnected {
+            background: #dc3545;
+            animation: none;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .mode-selector {
+            background: white;
+            padding: 20px;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .mode-btn {
+            padding: 12px 24px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .mode-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .mode-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .video-area {
+            flex: 1;
+            background: #1a1a1a;
+            display: none;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .video-area.active {
+            display: flex;
+        }
+
+        .videos-container {
+            flex: 1;
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+        }
+
+        .video-wrapper {
+            flex: 1;
+            position: relative;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .video-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .video-controls {
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            background: white;
+            color: #333;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .control-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .control-btn.active {
+            background: #dc3545;
+            color: white;
+        }
+
+        .chat-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.stranger {
+            text-align: left;
+        }
+
+        .message.you {
+            text-align: right;
+        }
+
+        .message.system {
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+            font-style: italic;
+            padding: 10px;
+        }
+
+        .message-bubble {
+            display: inline-block;
+            padding: 12px 18px;
+            border-radius: 18px;
+            max-width: 75%;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+
+        .stranger .message-bubble {
+            background: #e9ecef;
+            color: #333;
+        }
+
+        .you .message-bubble {
+            background: #667eea;
+            color: white;
+        }
+
+        .message-label {
+            font-size: 12px;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .stranger .message-label {
+            color: #dc3545;
+        }
+
+        .you .message-label {
+            color: #667eea;
+        }
+
+        .typing-indicator {
+            text-align: left;
+            margin: 10px 0;
+            color: #6c757d;
+            font-size: 14px;
+            font-style: italic;
+            display: none;
+        }
+
+        .typing-indicator.active {
+            display: block;
+        }
+
+        .typing-dots {
+            display: inline-flex;
+            gap: 4px;
+        }
+
+        .typing-dots span {
+            width: 8px;
+            height: 8px;
+            background: #6c757d;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .typing-dots span:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .typing-dots span:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes bounce {
+
+            0%,
+            80%,
+            100% {
+                transform: scale(0);
+            }
+
+            40% {
+                transform: scale(1);
+            }
+        }
+
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #dee2e6;
+            display: flex;
+            gap: 10px;
+        }
+
+        #messageInput {
+            flex: 1;
+            padding: 14px 18px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        #messageInput:focus {
+            border-color: #667eea;
+        }
+
+        #messageInput:disabled {
+            background: #f8f9fa;
+            cursor: not-allowed;
+        }
+
+        button {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 25px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        #sendBtn {
+            background: #667eea;
+            color: white;
+        }
+
+        #sendBtn:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        #sendBtn:disabled {
+            background: #dee2e6;
+            cursor: not-allowed;
+        }
+
+        .controls {
+            padding: 15px 20px;
+            background: white;
+            border-top: 1px solid #dee2e6;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        #newChatBtn {
+            background: #28a745;
+            color: white;
+        }
+
+        #newChatBtn:hover:not(:disabled) {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        #stopBtn {
+            background: #dc3545;
+            color: white;
+        }
+
+        #stopBtn:hover:not(:disabled) {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .welcome-screen {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .welcome-screen h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+
+        .welcome-screen p {
+            color: #6c757d;
+            margin-bottom: 30px;
+            line-height: 1.6;
+            max-width: 500px;
+        }
+
+        .welcome-screen .emoji {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .permission-warning {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            color: #856404;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px;
+            display: none;
+        }
+
+        .permission-warning.show {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .videos-container {
+                flex-direction: column;
+            }
+
+            .container {
+                height: 100vh;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📹 Chat Omegle - Vídeo, Áudio e Texto</h1>
+            <div class="status">
+                <span class="status-indicator disconnected" id="statusIndicator"></span>
+                <span id="statusText">Desconectado</span>
+            </div>
+        </div>
+
+        <div class="mode-selector" id="modeSelector">
+            <button class="mode-btn active" data-mode="text" onclick="selectMode('text')">
+                💬 Apenas Texto
+            </button>
+            <button class="mode-btn" data-mode="audio" onclick="selectMode('audio')">
+                🎤 Texto + Áudio
+            </button>
+            <button class="mode-btn" data-mode="video" onclick="selectMode('video')">
+                📹 Texto + Vídeo
+            </button>
+        </div>
+
+        <div class="permission-warning" id="permissionWarning">
+            ⚠️ Para usar áudio/vídeo, você precisa permitir acesso à câmera e microfone quando solicitado.
+        </div>
+
+        <div class="main-content">
+            <div class="video-area" id="videoArea">
+                <div class="videos-container">
+                    <div class="video-wrapper">
+                        <video id="localVideo" autoplay muted playsinline></video>
+                        <div class="video-label">Você</div>
+                    </div>
+                    <div class="video-wrapper">
+                        <video id="remoteVideo" autoplay playsinline></video>
+                        <div class="video-label">Estranho</div>
+                    </div>
+                </div>
+                <div class="video-controls">
+                    <button class="control-btn" id="toggleVideoBtn" onclick="toggleVideo()"
+                        title="Ligar/Desligar Câmera">
+                        📹
+                    </button>
+                    <button class="control-btn" id="toggleAudioBtn" onclick="toggleAudio()"
+                        title="Ligar/Desligar Microfone">
+                        🎤
+                    </button>
+                </div>
+            </div>
+
+            <div class="chat-area" id="chatArea">
+                <div class="welcome-screen">
+                    <div class="emoji">🌍</div>
+                    <h2>Conecte-se com o Mundo!</h2>
+                    <p>Escolha um modo acima (Texto, Áudio ou Vídeo) e clique em "Iniciar Novo Chat" para conversar com
+                        pessoas aleatórias!</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="typing-indicator" id="typingIndicator">
+            Estranho está digitando
+            <span class="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </span>
+        </div>
+
+        <div class="input-area">
+            <input type="text" id="messageInput" placeholder="Digite sua mensagem..." disabled>
+            <button id="sendBtn" onclick="sendMessage()" disabled>Enviar</button>
+        </div>
+
+        <div class="controls">
+            <button id="newChatBtn" onclick="startNewChat()">🚀 Iniciar Novo Chat</button>
+            <button id="stopBtn" onclick="stopChat()" disabled>⛔ Parar</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        let connected = false;
+        let currentMode = 'text';
+        let typingTimeout = null;
+        let localStream = null;
+        let remoteStream = null;
+        let peerConnection = null;
+        let videoEnabled = true;
+        let audioEnabled = true;
+
+        const chatArea = document.getElementById('chatArea');
+        const videoArea = document.getElementById('videoArea');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const newChatBtn = document.getElementById('newChatBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const statusText = document.getElementById('statusText');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const localVideo = document.getElementById('localVideo');
+        const remoteVideo = document.getElementById('remoteVideo');
+        const modeSelector = document.getElementById('modeSelector');
+        const permissionWarning = document.getElementById('permissionWarning');
+
+        // WebRTC Configuration
+        const rtcConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+
+        // Selecionar modo
+        function selectMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
+
+            if (mode !== 'text') {
+                permissionWarning.classList.add('show');
+                setTimeout(() => permissionWarning.classList.remove('show'), 5000);
+            }
+        }
+
+        // Detectar digitação
+        messageInput.addEventListener('input', () => {
+            if (connected) {
+                socket.emit('typing');
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => {
+                    socket.emit('stop-typing');
+                }, 1000);
+            }
+        });
+
+        // Enter para enviar
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !sendBtn.disabled) {
+                sendMessage();
+            }
+        });
+
+        // Socket.IO Events
+        socket.on('searching', () => {
+            updateStatus('searching', 'Procurando...');
+            addSystemMessage('🔍 Procurando alguém para conversar...');
+        });
+
+        socket.on('partner-found', async (data) => {
+            connected = true;
+            updateStatus('connected', 'Conectado');
+            addSystemMessage(`✅ Conectado! Modo: ${getModeLabel(data.mode)}`);
+
+            messageInput.disabled = false;
+            sendBtn.disabled = false;
+            stopBtn.disabled = false;
+            modeSelector.style.pointerEvents = 'none';
+            modeSelector.style.opacity = '0.5';
+            messageInput.focus();
+
+            // Se for áudio ou vídeo, iniciar WebRTC
+            if (data.mode === 'audio' || data.mode === 'video') {
+                videoArea.classList.add('active');
+                await initializeMedia(data.mode);
+                await createPeerConnection();
+                await createOffer();
+            }
+        });
+
+        socket.on('receive-message', (data) => {
+            addMessage('stranger', data.message);
+        });
+
+        socket.on('partner-typing', () => {
+            typingIndicator.classList.add('active');
+        });
+
+        socket.on('partner-stop-typing', () => {
+            typingIndicator.classList.remove('active');
+        });
+
+        socket.on('partner-disconnected', () => {
+            handleDisconnection();
+        });
+
+        socket.on('disconnected', () => {
+            connected = false;
+            updateStatus('disconnected', 'Desconectado');
+            messageInput.disabled = true;
+            sendBtn.disabled = true;
+            stopBtn.disabled = true;
+            modeSelector.style.pointerEvents = 'auto';
+            modeSelector.style.opacity = '1';
+        });
+
+        // WebRTC Signaling
+        socket.on('webrtc-offer', async (data) => {
+            await createPeerConnection();
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            socket.emit('webrtc-answer', { answer });
+        });
+
+        socket.on('webrtc-answer', async (data) => {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+        });
+
+        socket.on('webrtc-ice-candidate', async (data) => {
+            if (peerConnection && data.candidate) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
+        });
+
+        socket.on('partner-media-toggle', (data) => {
+            console.log('Parceiro alterou mídia:', data);
+        });
+
+        // Funções principais
+        async function startNewChat() {
+            chatArea.innerHTML = '';
+            typingIndicator.classList.remove('active');
+            messageInput.value = '';
+            newChatBtn.disabled = true;
+
+            socket.emit('find-partner', { mode: currentMode });
+        }
+
+        function stopChat() {
+            if (connected) {
+                socket.emit('disconnect-chat');
+                addSystemMessage('❌ Você desconectou.');
+                handleDisconnection();
+            }
+        }
+
+        function handleDisconnection() {
+            connected = false;
+            typingIndicator.classList.remove('active');
+            addSystemMessage('❌ O estranho desconectou.');
+            updateStatus('disconnected', 'Desconectado');
+
+            messageInput.disabled = true;
+            sendBtn.disabled = true;
+            stopBtn.disabled = true;
+            newChatBtn.disabled = false;
+            modeSelector.style.pointerEvents = 'auto';
+            modeSelector.style.opacity = '1';
+
+            // Limpar mídia
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            videoArea.classList.remove('active');
+            localVideo.srcObject = null;
+            remoteVideo.srcObject = null;
+        }
+
+        function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text || !connected) return;
+
+            addMessage('you', text);
+            socket.emit('send-message', { message: text });
+            messageInput.value = '';
+
+            socket.emit('stop-typing');
+            clearTimeout(typingTimeout);
+        }
+
+        // WebRTC Functions
+        async function initializeMedia(mode) {
+            try {
+                const constraints = {
+                    audio: true,
+                    video: mode === 'video' ? { width: 1280, height: 720 } : false
+                };
+
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                localVideo.srcObject = localStream;
+
+                return true;
+            } catch (error) {
+                console.error('Erro ao acessar mídia:', error);
+                addSystemMessage('❌ Erro ao acessar câmera/microfone. Verifique as permissões.');
+                return false;
+            }
+        }
+
+        async function createPeerConnection() {
+            peerConnection = new RTCPeerConnection(rtcConfig);
+
+            // Adicionar tracks locais
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+            }
+
+            // Receber tracks remotos
+            peerConnection.ontrack = (event) => {
+                if (!remoteStream) {
+                    remoteStream = new MediaStream();
+                    remoteVideo.srcObject = remoteStream;
+                }
+                remoteStream.addTrack(event.track);
+            };
+
+            // ICE Candidates
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('webrtc-ice-candidate', {
+                        candidate: event.candidate
+                    });
+                }
+            };
+
+            // Connection state
+            peerConnection.onconnectionstatechange = () => {
+                console.log('Connection state:', peerConnection.connectionState);
+                if (peerConnection.connectionState === 'failed') {
+                    addSystemMessage('❌ Falha na conexão de vídeo/áudio.');
+                }
+            };
+        }
+
+        async function createOffer() {
+            try {
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                socket.emit('webrtc-offer', { offer });
+            } catch (error) {
+                console.error('Erro ao criar oferta:', error);
+            }
+        }
+
+        function toggleVideo() {
+            if (localStream) {
+                videoEnabled = !videoEnabled;
+                localStream.getVideoTracks().forEach(track => {
+                    track.enabled = videoEnabled;
+                });
+
+                const btn = document.getElementById('toggleVideoBtn');
+                btn.classList.toggle('active', !videoEnabled);
+                btn.textContent = videoEnabled ? '📹' : '🚫';
+
+                socket.emit('media-toggle', { video: videoEnabled });
+            }
+        }
+
+        function toggleAudio() {
+            if (localStream) {
+                audioEnabled = !audioEnabled;
+                localStream.getAudioTracks().forEach(track => {
+                    track.enabled = audioEnabled;
+                });
+
+                const btn = document.getElementById('toggleAudioBtn');
+                btn.classList.toggle('active', !audioEnabled);
+                btn.textContent = audioEnabled ? '🎤' : '🔇';
+
+                socket.emit('media-toggle', { audio: audioEnabled });
+            }
+        }
+
+        function addMessage(sender, text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+
+            const label = sender === 'you' ? 'Você' : 'Estranho';
+            messageDiv.innerHTML = `
+                <div class="message-label">${label}</div>
+                <div class="message-bubble">${escapeHtml(text)}</div>
+            `;
+
+            chatArea.appendChild(messageDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function addSystemMessage(text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message system';
+            messageDiv.textContent = text;
+            chatArea.appendChild(messageDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function updateStatus(state, text) {
+            statusText.textContent = text;
+            statusIndicator.className = `status-indicator ${state}`;
+        }
+
+        function getModeLabel(mode) {
+            const labels = {
+                'text': 'Apenas Texto 💬',
+                'audio': 'Texto + Áudio 🎤',
+                'video': 'Texto + Vídeo 📹'
+            };
+            return labels[mode] || mode;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+
+</html>
